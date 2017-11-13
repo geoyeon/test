@@ -45,7 +45,7 @@ router.get('/todo/:todoID',function(req,res,next)
 {
     const { todoID } = req.params;
 
-    todoLogic.searchTodoByid(todoID)
+    todoLogic.searchTodoById(todoID)
     .then(function(ret)
     {
         res.send(ret);

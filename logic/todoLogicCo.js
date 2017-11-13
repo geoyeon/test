@@ -38,17 +38,13 @@ const searchTodo = function(body)
 };
 
 //할 일 아이디로 검색
-const searchTodoById = function(todoID)
-{
-    return co(function* ()
-    {
-        let check = yield checkTodoID(todoID);
+const searchTodoById = (todoID) => co(function* () {
+    let check = yield checkTodoID(todoID);
 
-        const query = todoSchema.findById(todoID);
+    const query = todoSchema.findById(todoID);
 
-        return yield query.exec();
-    });
-};
+    return yield query.exec();
+});
 
 //할 일 갱신
 const updateTodo = function(todoID,body)

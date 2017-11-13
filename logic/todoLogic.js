@@ -8,6 +8,21 @@ const todoSchema = require('../schemas/todo');
 //할 일 추가
 const inputTodo = function(body)
 {
+    if(_.isNil(body.title))
+    {
+        throw new Error('Title is Required');
+    }
+
+    if(!_.isNil(body.status) && todoSchema.STATUS.indexOf(body.status) < 0)
+    {
+        throw new Error('Wrong Status Type');
+    }
+
+    if(!_.isNil(body.context) && todoSchema.CONTEXT.indexOf(body.context) < 0)
+    {
+        throw new Error('Wrong Context Type');
+    }
+
     const input = {
         title: body.title,
         status: body.status,
@@ -19,295 +34,164 @@ const inputTodo = function(body)
     const todoItem = new todoSchema(input);
 
     return todoItem.save();
-
-    /*return new Promise(function(resolve,reject)
-    {
-        const input = {
-            title: body.title,
-            status: body.status,
-            context: body.context,
-            dueDate: body.dueDate,
-            doneAt: body.doneAt
-        };
-
-        const todoItem = new todoSchema(input);
-
-        todoItem.save()
-        .then(function (ret)
-        {
-            resolve(ret);
-        })
-        .catch(function (err)
-        {
-            reject(err);
-        });
-    });*/
 };
 
 //할 일 검색
 const searchTodo = function(body)
 {
-    return makeSearch(body)
-    .then(function(search)
+    const search = makeSearch(body);
+
+    if(search instanceof Error)
     {
-        const query = todoSchema.find(search);
+        //throw new Error("Wrong Search Date");
+        throw search;
+        //return Promise.reject(search);
+    }
 
-        return query.exec();
-    });
+    const query = todoSchema.find(search);
 
-    /*return new Promise(function(resolve,reject)
-    {
-        makeSearch(body)
-        .then(function(search)
-        {
-            const query = todoSchema.find(search);
-
-            return query.exec();
-        })
-        .then(function(ret)
-        {
-            const result = {items:ret,totalCount:ret.length};
-
-            resolve(result);
-        })
-        .catch(function(err)
-        {
-            reject(err);
-        });
-    });*/
+    return query.exec();
 };
 
 //할 일 아이디로 검색
 const searchTodoById = function(todoID)
 {
-    return checkTodoID(todoID)
-    .then(function(ret)
+    if (!checkTodoID(todoID))
+    {
+        throw new Error("Wrong Id");
+    }
+    else
     {
         const query = todoSchema.findById(todoID);
 
         return query.exec();
-    });
-
-  // return new Promise(function(resolve,reject)
-  // {
-  //     checkTodoID(todoID)
-  //     .then(function(ret)
-  //     {
-  //         const query = todoSchema.findById(todoID);
-  //
-  //         return query.exec();
-  //     })
-  //     .then(function (ret)
-  //     {
-  //         resolve(ret);
-  //     })
-  //     .catch(function(err)
-  //     {
-  //         reject(err);
-  //     })
-  // });
+    }
 };
 
 //할 일 갱신
 const updateTodo = function(todoID,body)
 {
-    return checkTodoID(todoID)
-    .then(function(ret)
+    if(!checkTodoID(todoID))
+    {
+        throw new Error("Wrong Id");
+    }
+    else
     {
         const query = todoSchema.findById(todoID);
 
-        return query.exec();
-    })
-    .then(function (item) {
-        if (!item) {
-            let err = new Error("CAN NOT FIND");
-            err.status = 400;
-            throw err;
-        }
+        query.exec()
+        .then(function (item) {
+            if (!item) {
+                let err = new Error("CAN NOT FIND");
+                err.status = 400;
+                throw err;
+            }
 
-        let isMod = false;
+            let isMod = false;
 
-        if (body.title && body.title !== item.title) {
-            item.title = body.title;
-            isMod = true;
-        }
+            if (body.title && body.title !== item.title) {
+                item.title = body.title;
+                isMod = true;
+            }
 
-        if (body.status && todoSchema.STATUS.indexOf(body.status) > -1 && body.status !== item.status) {
-            item.status = body.status;
-            isMod = true;
+            if (body.status && todoSchema.STATUS.indexOf(body.status) > -1 && body.status !== item.status) {
+                item.status = body.status;
+                isMod = true;
 
-            if (item.status === "DONE") item.doneAt = moment().format();
-        }
+                if (item.status === "DONE") item.doneAt = moment().format();
+            }
 
-        if (body.context && todoSchema.CONTEXT.indexOf(body.context) > -1 && body.context !== item.context) {
-            item.context = body.context;
-            isMod = true;
-        }
+            if (body.context && todoSchema.CONTEXT.indexOf(body.context) > -1 && body.context !== item.context) {
+                item.context = body.context;
+                isMod = true;
+            }
 
-        if (body.dueDate && body.dueDate !== item.dueDate) {
-            item.dueDate = body.dueDate;
-            isMod = true;
-        }
+            if (body.dueDate && body.dueDate !== item.dueDate) {
+                item.dueDate = body.dueDate;
+                isMod = true;
+            }
 
-        if (!isMod) throw new Error("No Change");
-        else {
-            return item.save();
-        }
-    });
-
-  /*return new Promise(function(resolve,reject)
-  {
-      checkTodoID(todoID)
-      .then(function(ret)
-      {
-          const query = todoSchema.findById(todoID);
-
-          return query.exec();
-      })
-      .then(function (item)
-      {
-          if (!item) {
-              let err = new Error("CAN NOT FIND");
-              err.status = 400;
-              throw err;
-          }
-
-          let isMod = false;
-
-          if (body.title && body.title !== item.title) {
-              item.title = body.title;
-              isMod = true;
-          }
-
-          if (body.status && todoSchema.STATUS.indexOf(body.status) > -1 && body.status !== item.status) {
-              item.status = body.status;
-              isMod = true;
-
-              if (item.status === "DONE") item.doneAt = moment().format();
-          }
-
-          if (body.context && todoSchema.CONTEXT.indexOf(body.context) > -1 && body.context !== item.context) {
-              item.context = body.context;
-              isMod = true;
-          }
-
-          if (body.dueDate && body.dueDate !== item.dueDate) {
-              item.dueDate = body.dueDate;
-              isMod = true;
-          }
-
-          if (!isMod) throw new Error("No Change");
-          else
-          {
-              return item.save();
-          }
-      })
-      .then(function (mod_item)
-      {
-          resolve(mod_item);
-      })
-      .catch(function(err)
-      {
-          reject(err);
-      });
-  });*/
+            if (!isMod) throw new Error("No Change");
+            else {
+                return item.save();
+            }
+        })
+    }
 };
 
 //할 일 삭제
 const deleteTodo = function(todoID)
 {
-    return checkTodoID(todoID)
-    .then(function(ret) {
+    if(!checkTodoID(todoID))
+    {
+        throw new Error("Wrong ID");
+    }
+    else
+    {
         const query = todoSchema.findByIdAndRemove(todoID);
 
         return query.exec();
-    });
-
-  /*return new Promise(function(resolve,reject)
-  {
-      checkTodoID(todoID)
-      .then(function(ret)
-      {
-          const query = todoSchema.findByIdAndRemove(todoID);
-
-          return query.exec();
-      })
-      .then(function (ret)
-      {
-          if (ret === null)
-          {
-              let err = new Error("CAN NOT FIND");
-              err.status = 400;
-              reject(err);
-          }
-          else
-          {
-              resolve({deleteId: todoID});
-          }
-      })
-      .catch(function(err)
-      {
-          reject(err);
-      });
-  });*/
+    }
 };
 
 //todoID 체크
 const checkTodoID = function(todoID)
 {
-    return new Promise(function(resolve,reject)
+    if (!_.isNil(todoID))
     {
-        if (!_.isNil(todoID))
-        {
-            resolve(true);
-        }
-        else
-        {
-            let err = new Error("Wrong todoID");
-            err.status = 400;
-            reject(err);
-        }
-    });
+        return true;
+    }
+    else
+    {
+        return false;
+    }
 };
 
 //검색 만들기
 const makeSearch = function(body)
 {
-    return new Promise(function(resolve,reject)
-    {
-        const search = {};
+    const search = {};
 
-        if(body.title && body.title.length > 0) search.title = new RegExp(body.title);
+    if(body.title && body.title.length > 0) search.title = new RegExp(body.title);
 
-        if (todoSchema.STATUS.indexOf(body.status) > -1)
-        {
+    if(!_.isNil(body.status)) {
+        if (todoSchema.STATUS.indexOf(body.status) > -1) {
             search.status = body.status;
         }
+        else {
+            return new Error('Wrong Status');
+        }
+    }
 
-        if(todoSchema.CONTEXT.indexOf(body.context) > -1)
-        {
+    if(!_.isNil(body.context)) {
+        if (todoSchema.CONTEXT.indexOf(body.context) > -1) {
             search.context = body.context;
         }
-
-        const dueDate = searchDate(body.startDueDate,body.endDueDate);
-        const doneAt = searchDate(body.startDoneAt,body.endDoneAt);
-        const createdAt = searchDate(body.startCreatedAt,body.endCreatedAt);
-
-        if([dueDate,doneAt,createdAt].indexOf(-1) > -1)
-        {
-            let err = new Error('Wrong Date Order');
-            err.status = 400;
-            reject(err);
+        else {
+            return new Error('Wrong Context');
         }
-        else
-        {
-            if (dueDate !== null) search.duedate = dueDate;
-            if (doneAt !== null) search.doneAt = doneAt;
-            if (createdAt !== null) search.createdAt = createdAt;
+    }
 
-            resolve(search);
-        }
-    });
+    const dueDate = searchDate(body.startDueDate,body.endDueDate);
+    const doneAt = searchDate(body.startDoneAt,body.endDoneAt);
+    const createdAt = searchDate(body.startCreatedAt,body.endCreatedAt);
+
+    if([dueDate,doneAt,createdAt].indexOf(-1) > -1)
+    {
+        /*let err = new Error('Wrong Date Order');
+        err.status = 400;
+        reject(err);*/
+
+        return new Error('Wrong Date Order');
+    }
+    else
+    {
+        if (dueDate !== null) search.duedate = dueDate;
+        if (doneAt !== null) search.doneAt = doneAt;
+        if (createdAt !== null) search.createdAt = createdAt;
+
+        return search;
+    }
 };
 
 //날짜 검색
@@ -335,6 +219,6 @@ const searchDate = function(start,end)
 
 module.exports.inputTodo = inputTodo;
 module.exports.searchTodo = searchTodo;
-module.exports.searchTodoByid = searchTodoById;
+module.exports.searchTodoById = searchTodoById;
 module.exports.updateTodo = updateTodo;
 module.exports.deleteTodo = deleteTodo;
