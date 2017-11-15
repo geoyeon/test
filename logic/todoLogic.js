@@ -1,5 +1,6 @@
 'use strict';
 
+const co = require('co');
 const moment = require('moment');
 moment.locale('ko');
 const _ = require('lodash');
@@ -8,68 +9,68 @@ const todoSchema = require('../schemas/todo');
 //할 일 추가
 const inputTodo = function(body)
 {
-    if(_.isNil(body.title))
+    return new Promise(function(resolve,reject)
     {
-        throw new Error('Title is Required');
-    }
+        if (_.isNil(body.title)) {
+            throw reject(new Error('Title is Required'));
+        }
 
-    if(!_.isNil(body.status) && todoSchema.STATUS.indexOf(body.status) < 0)
-    {
-        throw new Error('Wrong Status Type');
-    }
+        if (!_.isNil(body.status) && todoSchema.STATUS.indexOf(body.status) < 0) {
+            throw reject(new Error('Wrong Status Type'));
+        }
 
-    if(!_.isNil(body.context) && todoSchema.CONTEXT.indexOf(body.context) < 0)
-    {
-        throw new Error('Wrong Context Type');
-    }
+        if (!_.isNil(body.context) && todoSchema.CONTEXT.indexOf(body.context) < 0) {
+            throw reject(new Error('Wrong Context Type'));
+        }
 
-    const input = {
-        title: body.title,
-        status: body.status,
-        context: body.context,
-        dueDate: body.dueDate,
-        doneAt: body.doneAt
-    };
+        const input = {
+            title: body.title,
+            status: body.status,
+            context: body.context,
+            dueDate: body.dueDate,
+            doneAt: body.doneAt
+        };
 
-    const todoItem = new todoSchema(input);
+        const todoItem = new todoSchema(input);
 
-    return todoItem.save();
+        resolve(todoItem.save());
+    });
 };
 
 //할 일 검색
-const searchTodo = function(body)
+const searchTodo = (body) => new Promise((resolve, rejected) =>
 {
     const search = makeSearch(body);
 
     if(search instanceof Error)
     {
         //throw new Error("Wrong Search Date");
-        throw search;
+        throw rejected(search);
         //return Promise.reject(search);
     }
 
     const query = todoSchema.find(search);
 
-    return query.exec();
-};
+    resolve(query.exec());
+});
 
 //할 일 아이디로 검색
-const searchTodoById = function(todoID)
+const searchTodoById = (todoID) => new Promise((resolve,reject)=>
 {
     if (!checkTodoID(todoID))
     {
-        throw new Error("Wrong Id");
+        throw reject(new Error("Wrong Id"));
     }
     else
     {
         const query = todoSchema.findById(todoID);
 
-        return query.exec();
+        resolve(query.exec());
     }
-};
+});
 
 //할 일 갱신
-const updateTodo = function(todoID,body)
+const updateTodo = (todoID, body) => co(function* ()
 {
     if(!checkTodoID(todoID))
     {
@@ -79,60 +80,61 @@ const updateTodo = function(todoID,body)
     {
         const query = todoSchema.findById(todoID);
 
-        query.exec()
-        .then(function (item) {
-            if (!item) {
-                let err = new Error("CAN NOT FIND");
-                err.status = 400;
-                throw err;
-            }
+        const item = yield query.exec();
 
-            let isMod = false;
+        if (!item) {
+            let err = new Error("CAN NOT FIND");
+            err.status = 400;
+            throw err;
+        }
 
-            if (body.title && body.title !== item.title) {
-                item.title = body.title;
-                isMod = true;
-            }
+        let isMod = false;
 
-            if (body.status && todoSchema.STATUS.indexOf(body.status) > -1 && body.status !== item.status) {
-                item.status = body.status;
-                isMod = true;
+        if (body.title && body.title !== item.title) {
+            item.title = body.title;
+            isMod = true;
+        }
 
-                if (item.status === "DONE") item.doneAt = moment().format();
-            }
+        if (body.status && todoSchema.STATUS.indexOf(body.status) > -1 && body.status !== item.status) {
+            item.status = body.status;
+            isMod = true;
 
-            if (body.context && todoSchema.CONTEXT.indexOf(body.context) > -1 && body.context !== item.context) {
-                item.context = body.context;
-                isMod = true;
-            }
+            if (item.status === "DONE") item.doneAt = moment().format();
+        }
 
-            if (body.dueDate && body.dueDate !== item.dueDate) {
-                item.dueDate = body.dueDate;
-                isMod = true;
-            }
+        if (body.context && todoSchema.CONTEXT.indexOf(body.context) > -1 && body.context !== item.context) {
+            item.context = body.context;
+            isMod = true;
+        }
 
-            if (!isMod) throw new Error("No Change");
-            else {
-                return item.save();
-            }
-        })
+        if (body.dueDate && body.dueDate !== item.dueDate) {
+            item.dueDate = body.dueDate;
+            isMod = true;
+        }
+
+        if (!isMod) throw new Error("No Change");
+        else {
+            const ret = yield item.save();
+            //return item.save();
+            return ret;
+        }
     }
-};
+});
 
 //할 일 삭제
-const deleteTodo = function(todoID)
+const deleteTodo = (todoID) => new Promise((resolve,reject)=>
 {
     if(!checkTodoID(todoID))
     {
-        throw new Error("Wrong ID");
+        throw reject(new Error("Wrong ID"));
     }
     else
     {
         const query = todoSchema.findByIdAndRemove(todoID);
 
-        return query.exec();
+        resolve(query.exec());
     }
-};
+});
 
 //todoID 체크
 const checkTodoID = function(todoID)
@@ -199,8 +201,8 @@ const searchDate = function(start,end)
 {
     let searchDate = {};
 
-    if(start) searchDate.$gte = moment(start);
-    if(end) searchDate.$lte = moment(end);
+    if(start) searchDate.$gte = moment(start).toDate();
+    if(end) searchDate.$lte = moment(end).toDate();
 
     if((searchDate.$gte && searchDate.$lte) && searchDate.$gte > searchDate.$lte)
     {
